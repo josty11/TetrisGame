@@ -15,10 +15,19 @@ struct TetrisGameView: View {
             Color.black.ignoresSafeArea()
 
             VStack(spacing: 10) {
-                Text("Score: \(viewModel.score)")
-                    .font(.title2)
-                    .foregroundStyle(.white)
-                    .bold()
+                HStack(alignment: .center, spacing: 60) {
+                    Text("Score: \n \(viewModel.score)")
+                        .font(.title2)
+                        .multilineTextAlignment(.center)
+                        .foregroundStyle(.white)
+                        .bold()
+                    Text("Highest Score: \n \(viewModel.highScore)")
+                        .font(.title2)
+                        .foregroundStyle(.white)
+                        .multilineTextAlignment(.center)
+                        .bold()
+                }.padding()
+                
                 
                 //MARK: - Game Grid
                 GeometryReader { geometry in

@@ -20,6 +20,8 @@ class TetrisViewModel: ObservableObject {
     @Published var currentPiece: TetrisPiece?
     @Published var score = 0
     @Published var isGameOver = false
+    @Published var highScore: Int = UserDefaults.standard.integer(forKey: "HighestScore")
+
     private let allShapes = TetrisShapeType.allCases
     
     private var timer: AnyCancellable?
@@ -124,12 +126,16 @@ class TetrisViewModel: ObservableObject {
             newGrid.insert(Array(repeating: nil, count: Constants.columns), at: 0)
         }
 
+        if clearedLines > 0 {
+            updateScore(by: clearedLines)
+        }
+        
         grid = newGrid
-        score += clearedLines * Constants.scorePerLine
     }
 
     
     //MARK: - Movement
+    
     func moveLeft() {
         tryMoving { $0.position.col -= 1 }
     }
@@ -146,15 +152,6 @@ class TetrisViewModel: ObservableObject {
         }
     }
     
-    //MARK: - Rotation
-    func rotate() {
-        guard let piece = currentPiece else { return }
-        let rotatedPiece = piece.rotated()
-        if canPlace(piece: rotatedPiece) {
-            currentPiece = rotatedPiece
-        }
-    }
-
     //Dropping
     func drop() {
         guard var piece = currentPiece else { return }
@@ -170,8 +167,28 @@ class TetrisViewModel: ObservableObject {
             }
         }
     }
+    
+    //MARK: - Rotation
+    func rotate() {
+        guard let piece = currentPiece else { return }
+        let rotatedPiece = piece.rotated()
+        if canPlace(piece: rotatedPiece) {
+            currentPiece = rotatedPiece
+        }
+    }
 
-    //Coloring
+    //MARK: - Score
+    
+    private func updateScore(by linesCleared: Int) {
+        score += linesCleared * Constants.scorePerLine
+        
+        if score > highScore {
+            highScore = score
+            UserDefaults.standard.set(highScore, forKey: "HighestScore")
+        }
+    }
+    
+    //MARK: - Coloring
     func colorAt(row: Int, col: Int) -> Color? {
         // Check if current piece occupies this cell
         if let piece = currentPiece {
