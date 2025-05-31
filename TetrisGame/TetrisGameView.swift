@@ -22,13 +22,13 @@ struct TetrisGameView: View {
                 
                 //MARK: - Game Grid
                 GeometryReader { geometry in
-                    let cellSize = min(geometry.size.width / CGFloat(TetrisViewModel.columns),
-                                       geometry.size.height / CGFloat(TetrisViewModel.rows))
+                    let cellSize = min(geometry.size.width / CGFloat(Constants.columns),
+                                       geometry.size.height / CGFloat(Constants.rows))
                     
                     VStack(spacing: 1) {
-                        ForEach(0..<TetrisViewModel.rows, id: \.self) { row in
+                        ForEach(0..<Constants.rows, id: \.self) { row in
                             HStack(spacing: 1) {
-                                ForEach(0..<TetrisViewModel.columns, id: \.self) { col in
+                                ForEach(0..<Constants.columns, id: \.self) { col in
                                     
                                     let color = viewModel.colorAt(row: row, col: col)
                                     Rectangle()
@@ -39,11 +39,11 @@ struct TetrisGameView: View {
                             }
                         }
                     }
-                    .frame(width: cellSize * CGFloat(TetrisViewModel.columns),
-                           height: cellSize * CGFloat(TetrisViewModel.rows))
+                    .frame(width: cellSize * CGFloat(Constants.columns),
+                           height: cellSize * CGFloat(Constants.rows))
                     .background(Color.black)
                 }
-                .aspectRatio(CGFloat(TetrisViewModel.columns) / CGFloat(TetrisViewModel.rows), contentMode: .fit)
+                .aspectRatio(CGFloat(Constants.columns) / CGFloat(Constants.rows), contentMode: .fit)
                 .padding(.top, 20)
                 
                 //MARK: - Controls

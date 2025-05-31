@@ -8,27 +8,28 @@
 import SwiftUI
 import Combine
 
-struct TetrisPiece {
-    var shape: [[Int]]
-    var position: (row: Int, col: Int)
-    var color: Color
+enum Constants {
+    static let rows = 20
+    static let columns = 10
+    static let tickInterval: TimeInterval = 0.5
+    static let scorePerLine = 100
 }
 
 class TetrisViewModel: ObservableObject {
-    static let rows = 20
-    static let columns = 10
-
-    @Published var grid: [[Color?]] = Array(repeating: Array(repeating: nil, count: columns), count: rows)
+    @Published var grid: [[Color?]] = Array(repeating: Array(repeating: nil, count: Constants.columns), count: Constants.rows)
     @Published var currentPiece: TetrisPiece?
     @Published var score = 0
-
+    @Published var isGameOver = false
+    private let allShapes = TetrisShapeType.allCases
+    
     private var timer: AnyCancellable?
 
     init() {}
 
     func startGame() {
-        grid = Array(repeating: Array(repeating: nil, count: TetrisViewModel.columns), count: TetrisViewModel.rows)
+        grid = emptyGrid()
         score = 0
+        isGameOver = false
         spawnNewPiece()
         startTimer()
     }
@@ -48,43 +49,13 @@ class TetrisViewModel: ObservableObject {
     }
 
     func spawnNewPiece() {
-        let pieces = [
-            // I
-            ([[1, 1, 1, 1]], Color.cyan),
-            // O
-            ([[1, 1],
-              [1, 1]], Color.yellow),
-            // T
-            ([[0, 1, 0],
-              [1, 1, 1]], Color.purple),
-            // L
-            ([[1, 0],
-              [1, 0],
-              [1, 1]], Color.orange),
-            // J
-            ([[0, 1],
-              [0, 1],
-              [1, 1]], Color.blue),
-            // Z
-            ([[1, 1, 0],
-              [0, 1, 1]], Color.red),
-            // S
-            ([[0, 1, 1],
-              [1, 1, 0]], Color.green)
-        ]
-        let random = pieces.randomElement()!
-        let shape = random.0
-        let color = random.1
-
-        let piece = TetrisPiece(
-            shape: shape,
-            position: (row: 0, col: (TetrisViewModel.columns - shape[0].count) / 2),
-            color: color
-        )
+        guard let type = allShapes.randomElement() else { return }
+        let piece = TetrisPiece.create(from: type)
         if canPlace(piece: piece) {
             currentPiece = piece
         } else {
-            // Game Over
+            //Game Over
+            isGameOver = true
             stopTimer()
             currentPiece = nil
         }
@@ -103,12 +74,12 @@ class TetrisViewModel: ObservableObject {
     }
 
     func canPlace(piece: TetrisPiece) -> Bool {
-        for r in 0..<piece.shape.count {
-            for c in 0..<piece.shape[r].count {
-                if piece.shape[r][c] == 1 {
-                    let row = piece.position.row + r
-                    let col = piece.position.col + c
-                    if row < 0 || row >= TetrisViewModel.rows || col < 0 || col >= TetrisViewModel.columns {
+        for row in 0..<piece.shape.count {
+            for column in 0..<piece.shape[row].count {
+                if piece.shape[row][column] == 1 {
+                    let row = piece.position.row + row
+                    let col = piece.position.col + column
+                    if row < 0 || row >= Constants.rows || col < 0 || col >= Constants.columns {
                         return false
                     }
                     if grid[row][col] != nil {
@@ -122,13 +93,13 @@ class TetrisViewModel: ObservableObject {
 
     func lockPiece() {
         guard let piece = currentPiece else { return }
-        for r in 0..<piece.shape.count {
-            for c in 0..<piece.shape[r].count {
-                if piece.shape[r][c] == 1 {
-                    let row = piece.position.row + r
-                    let col = piece.position.col + c
-                    if row >= 0 && row < TetrisViewModel.rows &&
-                        col >= 0 && col < TetrisViewModel.columns {
+        for row in 0..<piece.shape.count {
+            for column in 0..<piece.shape[row].count {
+                if piece.shape[row][column] == 1 {
+                    let row = piece.position.row + row
+                    let col = piece.position.col + column
+                    if row >= 0 && row < Constants.rows &&
+                        col >= 0 && col < Constants.columns {
                         grid[row][col] = piece.color
                     }
                 }
@@ -150,51 +121,41 @@ class TetrisViewModel: ObservableObject {
         }
 
         for _ in 0..<clearedLines {
-            newGrid.insert(Array(repeating: nil, count: TetrisViewModel.columns), at: 0)
+            newGrid.insert(Array(repeating: nil, count: Constants.columns), at: 0)
         }
 
         grid = newGrid
-        score += clearedLines * 100
+        score += clearedLines * Constants.scorePerLine
     }
 
+    
+    //MARK: - Movement
     func moveLeft() {
-        guard var piece = currentPiece else { return }
-        piece.position.col -= 1
-        if canPlace(piece: piece) {
-            currentPiece = piece
-        }
+        tryMoving { $0.position.col -= 1 }
     }
 
     func moveRight() {
+        tryMoving { $0.position.col += 1 }
+    }
+
+    private func tryMoving(_ transform: (inout TetrisPiece) -> Void) {
         guard var piece = currentPiece else { return }
-        piece.position.col += 1
+        transform(&piece)
         if canPlace(piece: piece) {
             currentPiece = piece
         }
     }
-
+    
+    //MARK: - Rotation
     func rotate() {
-        guard var piece = currentPiece else { return }
-        let rotated = rotateShape(piece.shape)
-        let newPiece = TetrisPiece(shape: rotated, position: piece.position, color: piece.color)
-        if canPlace(piece: newPiece) {
-            currentPiece = newPiece
+        guard let piece = currentPiece else { return }
+        let rotatedPiece = piece.rotated()
+        if canPlace(piece: rotatedPiece) {
+            currentPiece = rotatedPiece
         }
     }
 
-    private func rotateShape(_ shape: [[Int]]) -> [[Int]] {
-        let rows = shape.count
-        let cols = shape[0].count
-        var rotated = Array(repeating: Array(repeating: 0, count: rows), count: cols)
-
-        for r in 0..<rows {
-            for c in 0..<cols {
-                rotated[c][rows - 1 - r] = shape[r][c]
-            }
-        }
-        return rotated
-    }
-
+    //Dropping
     func drop() {
         guard var piece = currentPiece else { return }
         while true {
@@ -210,6 +171,7 @@ class TetrisViewModel: ObservableObject {
         }
     }
 
+    //Coloring
     func colorAt(row: Int, col: Int) -> Color? {
         // Check if current piece occupies this cell
         if let piece = currentPiece {
@@ -226,5 +188,10 @@ class TetrisViewModel: ObservableObject {
             }
         }
         return grid[row][col]
+    }
+    
+    //Sets up empty grid
+    private func emptyGrid() -> [[Color?]] {
+        Array(repeating: Array(repeating: nil, count: Constants.columns), count: Constants.rows)
     }
 }
